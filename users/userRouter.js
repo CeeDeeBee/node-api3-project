@@ -1,38 +1,74 @@
 const express = require("express");
 
 const db = require("./userDb");
+const postDB = require("../posts/postDb");
 
 const router = express.Router();
 
 router.post("/", validateUser, (req, res) => {
-	// do your magic!
+	db.insert(req.body)
+		.then((user) => res.status(201).json(user))
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to add user to database" })
+		);
 });
 
 router.get("/", (req, res) => {
-	// do your magic!
+	db.get()
+		.then((users) => res.status(200).json(users))
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to retrieve users" })
+		);
 });
 
 // id routes
 router.use("/:id", validateUserId);
 
 router.post("/:id/posts", validatePost, (req, res) => {
-	// do your magic!
+	postDB
+		.insert({ ...req.body, ["user_id"]: req.params.id })
+		.then((post) => res.status(201).json(post))
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to create post" })
+		);
 });
 
 router.get("/:id", (req, res) => {
-	// do your magic!
+	db.getById(req.params.id)
+		.then((user) => res.status(200).json(user))
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to retrieve user" })
+		);
 });
 
 router.get("/:id/posts", (req, res) => {
-	// do your magic!
+	db.getUserPosts(req.params.id)
+		.then((posts) => res.status(200).json(posts))
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to retrieve user posts" })
+		);
 });
 
 router.delete("/:id", (req, res) => {
-	// do your magic!
+	db.remove(req.params.id)
+		.then((count) => res.sendStatus(200))
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to remove user" })
+		);
 });
 
 router.put("/:id", validateUser, (req, res) => {
-	// do your magic!
+	db.update(req.params.id, req.body)
+		.then((count) => {
+			db.getById(req.params.id)
+				.then((user) => res.status(200).json(user))
+				.catch((err) =>
+					res.status(500).json({ errorMessage: "Unable to find update user" })
+				);
+		})
+		.catch((err) =>
+			res.status(500).json({ errorMessage: "Unable to update user" })
+		);
 });
 
 //custom middleware
@@ -40,7 +76,12 @@ router.put("/:id", validateUser, (req, res) => {
 function validateUserId(req, res, next) {
 	db.getById(req.params.id)
 		.then((user) => {
-			user ? next() : res.status(400).json({ message: "Invalid user id" });
+			if (user) {
+				req.user = user;
+				next();
+			} else {
+				res.status(400).json({ message: "Invalid user id" });
+			}
 		})
 		.catch((err) =>
 			res
